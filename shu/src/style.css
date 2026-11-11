@@ -1,0 +1,91 @@
+/* 斯坦福环 · R3 · 生态 / 导览 / 声音 / 导出 */
+:root{
+  --ink:#cfe3f5; --dim:#7f92a6; --accent:#4fc3f7;
+  --panel:rgba(7,11,18,.84); --line:rgba(79,195,247,.28);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#02040a;
+  font-family:var(--mono);color:var(--ink)}
+canvas{display:block}
+
+/* ── 仪表盘（左上） ─────────────────────────── */
+#hud{position:fixed;left:14px;top:14px;z-index:10;width:284px;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:12px 14px 10px;backdrop-filter:blur(6px);
+  font-size:12px;line-height:1.55;user-select:none}
+#hud h1{margin:0 0 2px;font-size:15px;font-weight:700;letter-spacing:.5px}
+#hud h1 small{font-size:10px;color:var(--dim);font-weight:400;margin-left:6px}
+#hud .ver{font-size:10px;color:var(--dim);margin-bottom:8px}
+.svBadge{display:inline-block;font-size:9px;padding:1px 6px;border-radius:8px;
+  border:1px solid rgba(255,215,130,.45);color:#ffd982;letter-spacing:1px}
+#hud .svNote{font-size:10px;color:var(--dim);margin:6px 0 2px}
+#hud section{border-top:1px dashed rgba(127,146,166,.25);margin-top:8px;padding-top:7px}
+#hud section:first-of-type{border-top:none}
+#hud h2{margin:0 0 5px;font-size:10px;color:var(--dim);font-weight:600;
+  letter-spacing:2px}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.row b{font-weight:600;color:#eaf4fd;font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+.row .dim{color:var(--dim)}
+.derive{font-size:10px;color:var(--dim);margin-top:3px}
+
+/* 档位徽标（启动探测结果，只读） */
+#tierBadge{display:inline-block;padding:1px 10px;border-radius:8px;
+  border:1px solid var(--line);color:var(--accent);font-size:11px;letter-spacing:1px}
+
+/* 重力档按钮 */
+.gset{display:flex;gap:6px;margin:4px 0 6px}
+.gbtn{flex:1;background:transparent;border:1px solid rgba(127,146,166,.4);
+  color:var(--ink);font-family:var(--mono);font-size:11px;padding:4px 0;
+  border-radius:6px;cursor:pointer}
+.gbtn:hover{border-color:var(--accent)}
+.gbtn.on{border-color:var(--accent);color:var(--accent);
+  background:rgba(79,195,247,.10)}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);
+  z-index:20;background:rgba(10,18,28,.92);border:1px solid var(--line);
+  border-radius:8px;padding:8px 18px;font-size:12px;color:#eaf4fd;
+  opacity:0;pointer-events:none;transition:opacity .28s}
+#toast.show{opacity:1}
+
+/* ── 拆解区（第二轮） ─────────────────────────── */
+.tbtn{background:transparent;border:1px solid rgba(127,146,166,.4);color:var(--ink);
+  font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer}
+.tbtn:hover{border-color:var(--accent)}
+.tbtn.on{border-color:var(--accent);color:var(--accent);background:rgba(79,195,247,.10)}
+#eSlider{flex:1;accent-color:#4fc3f7;height:14px;min-width:0}
+.legend{display:flex;flex-wrap:wrap;gap:3px 10px;margin-top:6px;font-size:10px;color:var(--dim)}
+.legend .lgItem{display:inline-flex;align-items:center;gap:4px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+
+/* 信息卡（拾取五字段） */
+#card{position:fixed;right:14px;top:14px;z-index:11;width:300px;max-width:calc(100vw - 28px);
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:12px 14px;backdrop-filter:blur(6px);font-size:12px;line-height:1.6}
+#card .cName{font-size:14px;font-weight:700;margin-bottom:6px;color:#eaf4fd;padding-right:20px}
+#card .cName .svBadge{margin-left:6px}
+#card .cRow{display:flex;gap:8px;margin-top:4px;align-items:baseline}
+#card .cRow span{color:var(--dim);white-space:nowrap;font-size:11px}
+#card .cRow b{font-weight:500;color:#dceaf7}
+#card .cClose{position:absolute;right:8px;top:8px;background:none;border:none;
+  color:var(--dim);font-size:14px;cursor:pointer;padding:2px 6px}
+#card .cClose:hover{color:var(--accent)}
+
+/* 导览文案 */
+.tourBox{margin-top:6px;font-size:11px;line-height:1.6;color:#b9cfdf;min-height:0}
+.tourBox b{color:var(--accent)}
+.tourBox:empty{display:none}
+
+/* toast 收口（防小屏溢出） */
+#toast{max-width:calc(100vw - 28px);text-align:center}
+
+/* ── 响应式（P1 #20）：≤900px 与 390×844 无横向溢出 ── */
+@media (max-width: 900px){
+  #hud{width:min(284px, calc(100vw - 28px));max-height:46vh;overflow-y:auto;
+    overscroll-behavior:contain;font-size:11px;padding:10px 12px 8px}
+  #hud h1{font-size:13px}
+  #card{width:min(300px, calc(100vw - 28px));top:auto;bottom:14px}
+  .row b{max-width:60vw;overflow:hidden;text-overflow:ellipsis}
+}
