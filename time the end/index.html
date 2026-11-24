@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THE END OF TIME</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#04050d; }
+  canvas { display:block; }
+  #hud {
+    position:fixed; inset:0; pointer-events:none; z-index:10;
+    font-family: "Times New Roman", "Songti SC", "SimSun", serif;
+    color:#ddd5c6;
+  }
+  .title {
+    position:absolute; left:52px; top:44px;
+    text-shadow:0 0 26px rgba(226,190,140,.20);
+  }
+  .title h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size:29px; font-weight:400; letter-spacing:.40em; line-height:1;
+    white-space:nowrap; color:#efe7d8;
+  }
+  .title .en {
+    margin-top:12px; font-size:12px; letter-spacing:.52em;
+    color:#8e8a80; text-transform:uppercase;
+  }
+  .title .rule {
+    margin-top:16px; width:180px; height:1px;
+    background:linear-gradient(90deg,rgba(206,190,164,.55),transparent);
+  }
+  .foot {
+    position:absolute; left:52px; bottom:38px;
+    font-size:11px; letter-spacing:.28em; color:#6f6a61;
+    text-shadow:0 0 10px rgba(4,5,13,.95), 0 0 22px rgba(4,5,13,.9);
+  }
+  .clock {
+    position:absolute; right:52px; top:44px; text-align:right;
+  }
+  .clock .k { font-size:10px; letter-spacing:.4em; color:#68645d; text-transform:uppercase; }
+  .clock .v {
+    margin-top:8px; font-size:30px; font-weight:400; letter-spacing:.16em;
+    color:#cfc5b2; font-variant-numeric:tabular-nums;
+  }
+  .clock .sub { margin-top:6px; font-size:10px; letter-spacing:.24em; color:#736e64; }
+  #err {
+    position:fixed; inset:0; display:none; z-index:99;
+    align-items:center; justify-content:center; color:#ff9a7a;
+    font:14px monospace; background:#04050d; padding:40px; text-align:center;
+  }
+  /* reversal state: text picks up a cold cast, edge glows faint blue */
+  #hud { transition: color .9s ease; }
+  body.reversed #hud { color:#bcd0e4; }
+  body.reversed .title h1 { color:#dfe9f4; text-shadow:0 0 26px rgba(150,190,230,.30); }
+  body.reversed .clock .v { color:#c3d4e4; }
+  body.reversed .foot { color:#6b7b8e; }
+  body.reversed #hud::after {
+    content:''; position:fixed; inset:0; pointer-events:none;
+    box-shadow: inset 0 0 190px rgba(60,110,180,.16);
+    transition: box-shadow .9s ease;
+  }
+  .hint {
+    position:absolute; right:52px; bottom:38px; text-align:right;
+    font-size:11px; letter-spacing:.22em; color:#66625a;
+    text-shadow:0 0 10px rgba(4,5,13,.95), 0 0 22px rgba(4,5,13,.9);
+    transition: color .9s ease;
+  }
+  .hint b { font-weight:400; color:#9a9084; }
+  body.reversed .hint { color:#5f7186; }
+  body.reversed .hint b { color:#8fa8c0; }
+
+  /* music control — sits under the chronometer, quiet until hovered */
+  .music {
+    position:absolute; right:52px; top:150px; text-align:right;
+    pointer-events:auto; cursor:pointer; user-select:none;
+    transition:color .5s ease;
+  }
+  .music .row {
+    display:flex; align-items:center; justify-content:flex-end; gap:9px;
+    color:#6b675e; transition:color .4s ease;
+  }
+  .music:hover .row { color:#c4b8a4; }
+  .music .note { font-size:14px; line-height:1; color:#a08f74; }
+  .music .label { font-size:11px; letter-spacing:.22em; }
+  .music .state {
+    margin-top:7px; font-size:9.5px; letter-spacing:.26em;
+    color:#4f4c46; transition:color .4s ease;
+  }
+  .music.on .note { color:#d8c295; }
+  .music.on .state { color:#6e675c; }
+  body.reversed .music.on .note { color:#9fc0dd; }
+  body.reversed .music .state { color:#5d6f82; }
+  /* tiny bass meter */
+  .music .meter {
+    margin-top:8px; margin-left:auto; width:88px; height:1px;
+    background:rgba(160,145,120,.16); position:relative; overflow:hidden;
+  }
+  .music .meter i {
+    position:absolute; left:0; top:0; height:100%; width:0%;
+    background:linear-gradient(90deg,rgba(200,180,140,.75),rgba(240,220,180,.9));
+    transition:width .08s linear;
+  }
+  body.reversed .music .meter i {
+    background:linear-gradient(90deg,rgba(130,170,205,.75),rgba(180,215,240,.9));
+  }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="hud">
+  <div class="title">
+    <h1>THE END OF TIME</h1>
+    <div class="en">Finis Temporis</div>
+    <div class="rule"></div>
+  </div>
+  <div class="clock">
+    <div class="k">Chronometer</div>
+    <div class="v" id="clock-v">00 : 00 : 00</div>
+    <div class="sub" id="clock-sub">T − ∞</div>
+  </div>
+  <div class="music" id="music">
+    <div class="row"><span class="note">♪</span><span class="label">Longing Across Time</span></div>
+    <div class="state" id="music-state">CLICK TO PLAY</div>
+    <div class="meter"><i id="music-meter"></i></div>
+  </div>
+  <div class="foot">DRAG TO ORBIT &nbsp;·&nbsp; SCROLL TO ZOOM &nbsp;·&nbsp; TIME IS FALLING</div>
+  <div class="hint">HOLD <b>SHIFT</b> TO REVERSE &nbsp;·&nbsp; CLICK THE DISC FOR RIPPLES</div>
+</div>
+<div id="err"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from './vendor/OrbitControls.js';
+import { EffectComposer } from './vendor/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from './vendor/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from './vendor/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from './vendor/addons/postprocessing/OutputPass.js';
+
+const errBox = document.getElementById('err');
+window.addEventListener('error', e => { errBox.style.display='flex'; errBox.textContent='ERR '+e.message; });
+
+/* ---------- renderer / scene / camera ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x04050d, 1);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+// OutputPass reads renderer.toneMapping and applies it ONCE at the end of the chain.
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.95;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x070810, 0.0080);
+
+const camera = new THREE.PerspectiveCamera(46, innerWidth/innerHeight, 0.1, 500);
+camera.position.set(0, 13.0, 22.0);
+
+/* ---------- post-processing : HDR bloom, applied with restraint ---------- */
+const rtParams = { type: THREE.HalfFloatType,
+  minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+  format: THREE.RGBAFormat, samples: 0 };
+const hdrTarget = new THREE.WebGLRenderTarget(innerWidth, innerHeight, rtParams);
+const composer = new EffectComposer(renderer, hdrTarget);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(
+  new THREE.Vector2(innerWidth, innerHeight),
+  0.30,   // strength
+  0.45,   // radius
+  1.05    // threshold — in HDR, only the truly hot core blooms
+);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());  // reads renderer.toneMapping (ACES)
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.minDistance = 9;
+controls.maxDistance = 60;
+controls.target.set(0, 0, 0);
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.28;
+
+/* ---------- helpers ---------- */
+function radialSprite(inner, outer, size, color){
+  const c = document.createElement('canvas'); c.width=c.height=256;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(128,128,0,128,128,128);
+  grad.addColorStop(0, inner);
+  grad.addColorStop(0.35, outer);
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad; g.fillRect(0,0,256,256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.SpriteMaterial({ map:tex, color:color||0xffffff,
+    transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, depthTest:false });
+  const s = new THREE.Sprite(mat); s.scale.set(size,size,1);
+  return s;
+}
+
+/* ---------- background gradient dome ---------- */
+{
+  const g = new THREE.SphereGeometry(200, 32, 16);
+  const m = new THREE.ShaderMaterial({
+    side:THREE.BackSide, depthWrite:false, fog:false,
+    uniforms:{},
+    vertexShader:`varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader:`
+      varying vec3 vP;
+      void main(){
+        float h = normalize(vP).y*0.5+0.5;
+        // neutral deep-indigo, no violet haze — restraint reads as expensive
+        vec3 top = vec3(0.008,0.010,0.018);
+        vec3 mid = vec3(0.016,0.019,0.032);
+        vec3 bot = vec3(0.005,0.006,0.012);
+        vec3 col = mix(bot, mid, smoothstep(0.0,0.5,h));
+        col = mix(col, top, smoothstep(0.5,1.0,h));
+        // barely-there warm lift near the horizon line
+        float band = exp(-pow((h-0.47)*6.5,2.0));
+        col += vec3(0.020,0.014,0.008)*band;
+        gl_FragColor = vec4(col,1.0);
+      }`
+  });
+  scene.add(new THREE.Mesh(g,m));
+}
+
+/* ---------- starfield ---------- */
+{
+  const N = 1400;
+  const pos = new Float32Array(N*3), col = new Float32Array(N*3), siz = new Float32Array(N);
+  const rnd = (a,b)=>a+Math.random()*(b-a);
+  for(let i=0;i<N;i++){
+    const r = rnd(70,160);
+    const th = rnd(0,Math.PI*2), ph = Math.acos(rnd(-1,1));
+    pos[i*3]   = r*Math.sin(ph)*Math.cos(th);
+    pos[i*3+1] = r*Math.cos(ph);
+    pos[i*3+2] = r*Math.sin(ph)*Math.sin(th);
+    // near-white stars with a whisper of temperature variation, low saturation
+    const t = Math.random();
+    const c = new THREE.Color().setHSL(t<0.8?0.60:0.10, t<0.8?0.10:0.14, rnd(0.55,0.92));
+    col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b;
+    siz[i]=rnd(0.5,1.9);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('aColor', new THREE.BufferAttribute(col,3));
+  geo.setAttribute('aSize', new THREE.BufferAttribute(siz,1));
+  const mat = new THREE.ShaderMaterial({
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, fog:false,
+    uniforms:{ uPR:{value:Math.min(devicePixelRatio,2)} },
+    vertexShader:`
+      attribute vec3 aColor; attribute float aSize;
+      uniform float uPR; varying vec3 vC;
+      void main(){ vC=aColor; vec4 mv=modelViewMatrix*vec4(position,1.0);
+        gl_PointSize=aSize*uPR*(120.0/-mv.z); gl_Position=projectionMatrix*mv; }`,
+    fragmentShader:`
+      varying vec3 vC;
+      void main(){ float d=length(gl_PointCoord-0.5); if(d>0.5) discard;
+        float a=pow(smoothstep(0.5,0.0,d),2.0); gl_FragColor=vec4(vC,a*0.85); }`
+  });
+  scene.add(new THREE.Points(geo,mat));
+}
+
+/* ---------- everything that lives in the disc plane ---------- */
+const disc = new THREE.Group();
+disc.rotation.x = -0.16;
+scene.add(disc);
+
+/* ---- time-sand disc : logarithmic spiral arms, particles fall inward ---- */
+const DUST = 46000;
+{
+  const pos  = new Float32Array(DUST*3);
+  const aRad = new Float32Array(DUST);
+  const aAng = new Float32Array(DUST);
+  const aArm = new Float32Array(DUST);
+  const aSiz = new Float32Array(DUST);
+  const aSeed= new Float32Array(DUST);
+  const aSpd = new Float32Array(DUST);
+  const ARMS = 7;
+  for(let i=0;i<DUST;i++){
+    aRad[i] = Math.pow(Math.random(), 0.72);          // bias outward a bit
+    aAng[i] = (Math.random()-0.5)*0.55;               // arm width jitter
+    aArm[i] = (i % ARMS) * (Math.PI*2/ARMS) + (Math.random()-0.5)*0.08;
+    // extreme size split: a few bright grains carry the structure, the rest are fine dust
+    aSiz[i] = 0.30 + Math.pow(Math.random(),4.5)*3.4;
+    aSeed[i]= Math.random();
+    aSpd[i] = 0.65 + Math.random()*0.7;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('aRad', new THREE.BufferAttribute(aRad,1));
+  geo.setAttribute('aAng', new THREE.BufferAttribute(aAng,1));
+  geo.setAttribute('aArm', new THREE.BufferAttribute(aArm,1));
+  geo.setAttribute('aSiz', new THREE.BufferAttribute(aSiz,1));
+  geo.setAttribute('aSeed',new THREE.BufferAttribute(aSeed,1));
+  geo.setAttribute('aSpd', new THREE.BufferAttribute(aSpd,1));
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 40);
+
+  const mat = new THREE.ShaderMaterial({
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, fog:false,
+    uniforms:{
+      uTime:{value:0}, uPR:{value:Math.min(devicePixelRatio,2)}, uFlow:{value:1.0},
+      uCold:{value:0.0},
+      uMouse:{value:new THREE.Vector3(999,999,999)}, uMouseOn:{value:0},
+      // 4 shockwave slots, flat arrays (Vector3[] would not re-upload on component edits)
+      uShockT:{value:new Float32Array([-999,-999,-999,-999])},
+      uShockPos:{value:new Float32Array(12)}
+    },
+    vertexShader:`
+      uniform float uTime, uPR, uFlow, uMouseOn, uCold;
+      uniform float uShockT[4];
+      uniform vec3 uShockPos[4];
+      uniform vec3 uMouse;
+      attribute float aRad, aAng, aArm, aSiz, aSeed, aSpd;
+      varying vec3 vC; varying float vA; varying float vShock;
+      void main(){
+        float R_IN=2.75, R_OUT=15.5;   // inner edge at the photon ring, no pile-up
+        float phase = fract(aRad - uTime*0.0075*aSpd*uFlow);
+        float r = mix(R_IN, R_OUT, phase);
+        float twist = 2.75;
+        float omega = 0.30/sqrt(r);
+        float ang = aAng + aArm + twist*log(r) + uTime*omega*uFlow;
+        // thin disk with slight warp and inner puff
+        float warp = sin(ang*2.0 + r*0.18)*0.18*(phase);
+        float thick = (aSeed-0.5) * (0.10 + phase*0.55);
+        vec3 p = vec3(cos(ang)*r, thick+warp, sin(ang)*r);
+
+        // ---- mouse gravity well: particles swirl toward cursor ----
+        if(uMouseOn>0.5){
+          vec3 d = uMouse - p;
+          float dist = length(d.xz);
+          float infl = exp(-dist*dist/18.0);
+          vec2 tang = normalize(vec2(-d.z, d.x)+vec2(0.0001));
+          p.xz += normalize(d.xz+vec2(0.0001))*infl*1.5;   // pull in
+          p.xz += tang*infl*1.9;                           // swirl
+          p.y  += infl*0.8;
+        }
+        // ---- click shockwaves: up to 4 rings coexist and superpose ----
+        vec2 shockDisp = vec2(0.0);
+        float shockY = 0.0;
+        for(int i=0;i<4;i++){
+          float age = uTime - uShockT[i];
+          if(age>0.0 && age<2.6){
+            vec2 toP = p.xz - uShockPos[i].xz;
+            float sd = length(toP);
+            float front = age*9.0;
+            float band = exp(-pow((sd-front)/1.35,2.0));
+            float wake = exp(-pow((sd-front*0.72)/2.6,2.0))*0.28;
+            float fade = 1.0 - age/2.6;
+            shockDisp += normalize(toP+vec2(0.0001))*(band+wake)*2.6*fade;
+            shockY += (band+wake)*0.45*fade;   // keep the wave planar, no vertical wall
+          }
+        }
+        p.xz += shockDisp;
+        p.y  += shockY;
+        vShock = clamp(length(shockDisp)*1.5, 0.0, 1.4);   // lit where the wave passes
+
+        vec4 mv = modelViewMatrix * vec4(p,1.0);
+        gl_Position = projectionMatrix * mv;
+        // particles shrink and dim as they fall into the horizon (not pile up)
+        float bright = mix(0.35, 1.0, smoothstep(0.0,0.22,phase));
+        gl_PointSize = aSiz * bright * uPR * (38.0/-mv.z);
+
+        // palette: misted slate-blue -> champagne -> warm ivory
+        // desaturated on purpose; the glow comes from luminance, not hue
+        float hot = 1.0-phase; // 1 at core
+        vec3 cold = vec3(0.34,0.46,0.60);
+        vec3 warm = vec3(0.86,0.70,0.48);
+        vec3 whit = vec3(1.00,0.95,0.86);
+        vec3 c = mix(cold, warm, smoothstep(0.08,0.62,hot));
+        c = mix(c, whit, smoothstep(0.66,1.0,hot));
+        // reversed time: warm core turns to pale ice-blue
+        c = mix(c, vec3(0.55,0.76,1.00), uCold*0.72*hot);
+        // a shockwave paints a bright band through the dust
+        c += vec3(0.34,0.27,0.15)*vShock;
+        vC = c;
+        float fin  = smoothstep(0.0,0.05,phase);
+        float fout = 1.0 - smoothstep(0.86,1.0,phase);
+        // carve a dim annulus at the dial radius so roman numerals read through
+        float dialMask = 1.0 - 0.72*exp(-pow((r-9.4)/1.35,2.0));
+        vA = fin*fout * (0.42+0.38*aSeed) * dialMask;
+      }`,
+    fragmentShader:`
+      varying vec3 vC; varying float vA;
+      void main(){
+        float d = length(gl_PointCoord-0.5); if(d>0.5) discard;
+        float a = pow(smoothstep(0.5,0.0,d),1.7);
+        gl_FragColor = vec4(vC, a*vA);
+      }`
+  });
+  const pts = new THREE.Points(geo,mat);
+  pts.name = 'dust';
+  disc.add(pts);
+  window.__DUST_MAT__ = mat;
+  window.__DUST__ = pts;
+
+  /* ---- motion trails : each particle drawn as a short streak ---- */
+  const TRAIL_N = 6500;                // subset: only outer, sparse region gets streaks
+  const tpos  = new Float32Array(TRAIL_N*2*3);
+  const tRad  = new Float32Array(TRAIL_N*2);
+  const tAng  = new Float32Array(TRAIL_N*2);
+  const tArm  = new Float32Array(TRAIL_N*2);
+  const tSeed = new Float32Array(TRAIL_N*2);
+  const tSpd  = new Float32Array(TRAIL_N*2);
+  const tEnd  = new Float32Array(TRAIL_N*2);
+  const tSiz  = new Float32Array(TRAIL_N*2);
+  for(let i=0;i<TRAIL_N;i++){
+    // bias strongly outward: inner disc stays crisp, outer arms get the motion feel
+    const rad = 0.45 + Math.pow(Math.random(),0.55)*0.55;
+    const ang = (Math.random()-0.5)*0.55;
+    const arm = (i % 7) * (Math.PI*2/7) + (Math.random()-0.5)*0.08;
+    const seed= Math.random();
+    const spd = 0.65 + Math.random()*0.7;
+    const siz = 0.35 + Math.pow(Math.random(),3.0)*1.3;
+    for(let e=0;e<2;e++){
+      const k=i*2+e;
+      tRad[k]=rad; tAng[k]=ang; tArm[k]=arm; tSeed[k]=seed; tSpd[k]=spd; tSiz[k]=siz;
+      tEnd[k]=e;  // 0 = head, 1 = tail
+    }
+  }
+  const tgeo = new THREE.BufferGeometry();
+  tgeo.setAttribute('position', new THREE.BufferAttribute(tpos,3));
+  tgeo.setAttribute('aRad', new THREE.BufferAttribute(tRad,1));
+  tgeo.setAttribute('aAng', new THREE.BufferAttribute(tAng,1));
+  tgeo.setAttribute('aArm', new THREE.BufferAttribute(tArm,1));
+  tgeo.setAttribute('aSeed',new THREE.BufferAttribute(tSeed,1));
+  tgeo.setAttribute('aSpd', new THREE.BufferAttribute(tSpd,1));
+  tgeo.setAttribute('aEnd', new THREE.BufferAttribute(tEnd,1));
+  tgeo.setAttribute('aSiz', new THREE.BufferAttribute(tSiz,1));
+  tgeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 40);
+
+  const tmat = new THREE.ShaderMaterial({
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, fog:false,
+    uniforms:{ uTime:{value:0}, uFlow:{value:1.0}, uCold:{value:0.0} },
+    vertexShader:`
+      uniform float uTime, uFlow, uCold;
+      attribute float aRad, aAng, aArm, aSeed, aSpd, aEnd, aSiz;
+      varying vec3 vC; varying float vA;
+      void main(){
+        float R_IN=2.75, R_OUT=15.5;
+        // tail samples the orbit slightly earlier in time
+        float lag = aEnd * 0.13;
+        float tt = uTime - lag;
+        float phase = fract(aRad - tt*0.0075*aSpd*uFlow);
+        float r = mix(R_IN, R_OUT, phase);
+        float twist = 2.75;
+        float omega = 0.30/sqrt(r);
+        float ang = aAng + aArm + twist*log(r) + tt*omega*uFlow;
+        float warp = sin(ang*2.0 + r*0.18)*0.18*(phase);
+        float thick = (aSeed-0.5) * (0.10 + phase*0.55);
+        vec3 p = vec3(cos(ang)*r, thick+warp, sin(ang)*r);
+
+        vec4 mv = modelViewMatrix * vec4(p,1.0);
+        gl_Position = projectionMatrix * mv;
+
+        float hot = 1.0-phase;
+        vec3 cold = vec3(0.34,0.46,0.60);
+        vec3 warm = vec3(0.86,0.70,0.48);
+        vec3 whit = vec3(1.00,0.95,0.86);
+        vec3 c = mix(cold, warm, smoothstep(0.08,0.62,hot));
+        c = mix(c, whit, smoothstep(0.66,1.0,hot));
+        // reversed time: warm core turns to pale ice-blue
+        c = mix(c, vec3(0.55,0.76,1.00), uCold*0.72*hot);
+        vC = c;
+        float fin  = smoothstep(0.0,0.06,phase);
+        float fout = 1.0 - smoothstep(0.82,1.0,phase);
+        float dialMask = 1.0 - 0.72*exp(-pow((r-9.4)/1.35,2.0));
+        // tail fades out
+        vA = fin*fout*(0.42+0.34*aSeed)*dialMask*(1.0 - aEnd*0.80);
+      }`,
+    fragmentShader:`
+      varying vec3 vC; varying float vA;
+      void main(){ gl_FragColor = vec4(vC, vA); }`
+  });
+  const trails = new THREE.LineSegments(tgeo, tmat);
+  trails.name='trails';
+  disc.add(trails);
+  window.__TRAIL_MAT__ = tmat;
+}
+
+/* ---- inner accretion ring : tight bright orbits ---- */
+{
+  const N = 3200;
+  const pos=new Float32Array(N*3), rad=new Float32Array(N), ang=new Float32Array(N),
+        siz=new Float32Array(N), seed=new Float32Array(N);
+  for(let i=0;i<N;i++){
+    rad[i]=Math.random(); ang[i]=Math.random()*Math.PI*2;
+    siz[i]=0.6+Math.random()*2.0; seed[i]=Math.random();
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('aRad',new THREE.BufferAttribute(rad,1));
+  geo.setAttribute('aAng',new THREE.BufferAttribute(ang,1));
+  geo.setAttribute('aSiz',new THREE.BufferAttribute(siz,1));
+  geo.setAttribute('aSeed',new THREE.BufferAttribute(seed,1));
+  geo.boundingSphere=new THREE.Sphere(new THREE.Vector3(),6);
+  const mat=new THREE.ShaderMaterial({
+    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false,
+    uniforms:{uTime:{value:0},uPR:{value:Math.min(devicePixelRatio,2)},uFlow:{value:1.0},
+      uCold:{value:0.0},
+      uMouse:{value:new THREE.Vector3(999,999,999)},uMouseOn:{value:0},
+      uShockT:{value:new Float32Array([-999,-999,-999,-999])},
+      uShockPos:{value:new Float32Array(12)}},
+    vertexShader:`
+      uniform float uTime,uPR,uFlow,uMouseOn,uCold;
+      uniform float uShockT[4];
+      uniform vec3 uShockPos[4];
+      uniform vec3 uMouse;
+      attribute float aRad,aAng,aSiz,aSeed; varying vec3 vC; varying float vA;
+      void main(){
+        float r = mix(2.6,3.5,aRad);
+        float a = aAng + uTime*(0.9/sqrt(r))*uFlow;
+        vec3 p=vec3(cos(a)*r,(aSeed-0.5)*0.12,sin(a)*r);
+        if(uMouseOn>0.5){
+          vec3 d=uMouse-p; float dist=length(d.xz); float infl=exp(-dist*dist/12.0);
+          p.xz+=normalize(d.xz+vec2(0.0001))*infl*0.9;
+        }
+        vec2 sDisp=vec2(0.0);
+        for(int i=0;i<4;i++){
+          float age=uTime-uShockT[i];
+          if(age>0.0&&age<2.6){
+            vec2 toP=p.xz-uShockPos[i].xz;
+            float sd=length(toP);
+            float front=age*9.0;
+            float band=exp(-pow((sd-front)/1.55,2.0));
+            sDisp+=normalize(toP+vec2(0.0001))*band*1.4*(1.0-age/2.6);
+          }
+        }
+        p.xz+=sDisp;
+        vec4 mv=modelViewMatrix*vec4(p,1.0); gl_Position=projectionMatrix*mv;
+        gl_PointSize=aSiz*uPR*(52.0/-mv.z)*0.78;
+        vec3 hot=vec3(1.0,0.94,0.84), gold=vec3(0.88,0.71,0.47);
+        vec3 c=mix(gold,hot,aSeed);
+        c = mix(c, vec3(0.60,0.80,1.00), uCold*0.75);
+        vC=c;
+        vA=0.20+0.14*sin(aSeed*30.0+uTime*2.0);
+      }`,
+    fragmentShader:`
+      varying vec3 vC; varying float vA;
+      void main(){ float d=length(gl_PointCoord-0.5); if(d>0.5)discard;
+        gl_FragColor=vec4(vC,pow(smoothstep(0.5,0.0,d),1.8)*vA); }`
+  });
+  const ip = new THREE.Points(geo,mat); ip.name='inner';
+  disc.add(ip);
+  window.__RING_MAT__=mat;
+  window.__INNER__=ip;
+}
+
+/* ---- clock dial : roman numerals engraved on a translucent ring ---- */
+function makeDial(radius, tilt, opacity, tint){
+  const S=1024;
+  const c=document.createElement('canvas'); c.width=c.height=S;
+  const g=c.getContext('2d');
+  g.translate(S/2,S/2);
+  g.strokeStyle='rgba(238,214,178,1.0)'; g.lineWidth=3.0;
+  g.beginPath(); g.arc(0,0,S*0.47,0,Math.PI*2); g.stroke();
+  g.lineWidth=1.8; g.beginPath(); g.arc(0,0,S*0.415,0,Math.PI*2); g.stroke();
+  // tick marks
+  for(let i=0;i<60;i++){
+    const a=i/60*Math.PI*2 - Math.PI/2;
+    const maj=(i%5===0);
+    const r0=S*0.415, r1=S*(maj?0.375:0.395);
+    g.strokeStyle= maj?'rgba(242,222,190,1.0)':'rgba(200,182,158,0.66)';
+    g.lineWidth= maj?4.2:1.8;
+    g.beginPath(); g.moveTo(Math.cos(a)*r0,Math.sin(a)*r0); g.lineTo(Math.cos(a)*r1,Math.sin(a)*r1); g.stroke();
+  }
+  // roman numerals
+  const nums=['XII','I','II','III','IV','V','VI','VII','VIII','IX','X','XI'];
+  g.fillStyle='rgba(240,226,202,1.0)';
+  g.font='600 58px Georgia, "Times New Roman", serif';
+  g.textAlign='center'; g.textBaseline='middle';
+  for(let i=0;i<12;i++){
+    const a=i/12*Math.PI*2;
+    const rr=S*0.335;
+    g.save();
+    g.translate(Math.cos(a)*rr, Math.sin(a)*rr);
+    g.rotate(a+Math.PI/2);
+    g.fillText(nums[i],0,0);
+    g.restore();
+  }
+  const tex=new THREE.CanvasTexture(c);
+  tex.colorSpace=THREE.SRGBColorSpace;
+  tex.anisotropy=8;
+  // RingGeometry UV radius = (r/outer)/2 ; canvas art sits at 0.335..0.47
+  // -> map inner=0.64*radius, outer=1.0*radius so 0.32..0.5 of texture is visible.
+  const geo=new THREE.RingGeometry(radius*0.64, radius, 128);
+  const mat=new THREE.MeshBasicMaterial({ map:tex, color:tint, transparent:true, opacity,
+    side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false, fog:true });
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.rotation.x=-Math.PI/2+tilt;
+  mesh.renderOrder = 3;   // draw above dust so numerals stay legible
+  return mesh;
+}
+const ringA = makeDial(9.4,  0.00, 0.95, 0xffffff);
+const ringB = makeDial(14.0, 0.05, 0.34, 0x9fb2c4);
+disc.add(ringA, ringB);
+
+/* ---- clock hands : sweep from the core, over the dial ---- */
+function makeHand(len, w, color, opacity){
+  const g=new THREE.Group();
+  const geo=new THREE.BoxGeometry(len, 0.03, w);
+  const mat=new THREE.MeshBasicMaterial({color, transparent:true, opacity,
+    blending:THREE.AdditiveBlending, depthWrite:false, fog:false});
+  const m=new THREE.Mesh(geo,mat);
+  m.position.x=len/2;
+  g.add(m);
+  // counterweight
+  const geo2=new THREE.BoxGeometry(len*0.18,0.03,w*1.6);
+  const m2=new THREE.Mesh(geo2,mat); m2.position.x=-len*0.10; g.add(m2);
+  // tip
+  const geo3=new THREE.ConeGeometry(w*0.9, len*0.10, 4);
+  const m3=new THREE.Mesh(geo3,mat); m3.position.x=len*0.96; m3.rotation.z=-Math.PI/2; g.add(m3);
+  return g;
+}
+// clock hands removed — the event horizon doesn't tell time, it ends it.
+// (makeHand kept for reference; hands no longer instantiated)
+
+/* ---- floating shards : broken fragments of time ---- */
+{
+  const geo = new THREE.OctahedronGeometry(0.5, 0);
+  const mat = new THREE.MeshBasicMaterial({ color:0xa89070, transparent:true, opacity:0.14,
+    blending:THREE.AdditiveBlending, depthWrite:false, fog:true });
+  const n = 9;
+  window.__SHARDS__=[];
+  for(let i=0;i<n;i++){
+    const m = new THREE.Mesh(geo, mat.clone());
+    const r = 5 + Math.random()*10, a = Math.random()*Math.PI*2;
+    m.position.set(Math.cos(a)*r, (Math.random()-0.5)*2.6, Math.sin(a)*r);
+    const s = 0.10+Math.random()*0.22; m.scale.setScalar(s);
+    m.userData = { a, r, y:m.position.y, spin:Math.random()*0.5+0.1, ph:Math.random()*6.28 };
+    disc.add(m); window.__SHARDS__.push(m);
+  }
+}
+
+/* ---- armillary : layered brass hoops in real 3D, the "mechanism" read ----
+   These live in world space (not the disc plane) so the piece is no longer
+   a flat top-down picture. Each hoop has its own tilt and precession speed. */
+const armillary = new THREE.Group();
+scene.add(armillary);
+const metalRings = [];
+
+function makeMetalRing(radius, tube, tint){
+  const geo = new THREE.TorusGeometry(radius, tube, 10, 200);
+  const mat = new THREE.ShaderMaterial({
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, fog:false,
+    uniforms:{ uColor:{value:new THREE.Color(tint)}, uCold:{value:0} },
+    vertexShader:`
+      varying vec3 vN; varying vec3 vV; varying vec2 vUv;
+      void main(){
+        vN = normalize(normalMatrix * normal);
+        vec4 mv = modelViewMatrix * vec4(position,1.0);
+        vV = normalize(-mv.xyz);
+        vUv = uv;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader:`
+      uniform vec3 uColor; uniform float uCold;
+      varying vec3 vN; varying vec3 vV; varying vec2 vUv;
+      void main(){
+        vec3 L = normalize(vec3(-0.35, 0.78, 0.52));
+        vec3 H = normalize(L + vV);
+        float diff = max(dot(vN, L), 0.0);
+        float spec = pow(max(dot(vN, H), 0.0), 46.0);
+        float rim  = pow(1.0 - max(dot(vN, vV), 0.0), 3.0);
+        vec3 brass = mix(uColor, vec3(0.58,0.70,0.86), uCold*0.85);
+        // machined-metal glint: periodic highlights along the hoop
+        float glint = 0.68 + 0.32*sin(vUv.y*50.0);
+        float glint2 = 0.88 + 0.12*sin(vUv.y*160.0);
+        vec3 col = brass*(0.16 + 0.60*diff)*glint*glint2
+                 + vec3(1.0,0.94,0.78)*spec*1.45
+                 + brass*rim*0.50*glint;
+        float a = (0.34 + 0.36*diff + spec*0.55) * glint2;
+        gl_FragColor = vec4(col, a);
+      }`
+  });
+  return new THREE.Mesh(geo, mat);
+}
+
+function makeTeeth(radius, count, size, tint){
+  const g = new THREE.BoxGeometry(size*0.28, size*0.18, size*1.35);
+  const m = new THREE.MeshBasicMaterial({ color:tint, transparent:true, opacity:0.13,
+    blending:THREE.AdditiveBlending, depthWrite:false, fog:false });
+  const inst = new THREE.InstancedMesh(g, m, count);
+  const dummy = new THREE.Object3D();
+  for(let i=0;i<count;i++){
+    const a = i/count*Math.PI*2;
+    dummy.position.set(Math.cos(a)*radius, 0, Math.sin(a)*radius);
+    dummy.rotation.set(0, -a, 0);
+    dummy.updateMatrix();
+    inst.setMatrixAt(i, dummy.matrix);
+  }
+  inst.instanceMatrix.needsUpdate = true;
+  return inst;
+}
+
+const ringSpecs = [
+  { r: 11.2, tube:0.045, tx: 0.00, tz: 0.16, tint:0xd9c193, spin: 0.030, teeth:0 },
+  { r: 13.4, tube:0.030, tx: 0.58, tz:-0.22, tint:0xc7a878, spin:-0.021, teeth:84, tsz:0.17 },
+  { r: 15.6, tube:0.026, tx:-0.44, tz: 0.46, tint:0xbda780, spin: 0.015, teeth:0 },
+  { r:  9.6, tube:0.026, tx: 0.92, tz: 0.08, tint:0xe4cfa8, spin:-0.040, teeth:56, tsz:0.13 },
+];
+for(const s of ringSpecs){
+  const g = new THREE.Group();
+  const ring = makeMetalRing(s.r, s.tube, s.tint);
+  g.add(ring);
+  if(s.teeth) g.add(makeTeeth(s.r, s.teeth, s.tsz, s.tint));
+  g.rotation.x = s.tx;
+  g.rotation.z = s.tz;
+  g.userData = { spin: s.spin, baseX: s.tx, baseZ: s.tz };
+  armillary.add(g);
+  metalRings.push(g);
+}
+window.__ARMILLARY__ = armillary;
+window.__METAL_RINGS__ = metalRings;
+
+/* ---- debris field : shards scattered through 3D space, not on the plane ---- */
+{
+  const tri = new THREE.BufferGeometry();
+  tri.setAttribute('position', new THREE.Float32BufferAttribute([
+    0, 0.58, 0,  -0.50, -0.32, 0,  0.50, -0.32, 0
+  ], 3));
+  tri.computeVertexNormals();
+  const mat = new THREE.MeshBasicMaterial({ color:0xd8b982, transparent:true, opacity:0.30,
+    blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:true });
+  window.__DEBRIS__ = [];
+  for(let i=0;i<72;i++){
+    const m = new THREE.Mesh(tri, mat.clone());
+    const r = 4.5 + Math.random()*17;
+    const th = Math.random()*Math.PI*2;
+    const ph = Math.acos(Math.random()*2-1);
+    m.position.set(
+      r*Math.sin(ph)*Math.cos(th),
+      r*Math.cos(ph)*0.50,
+      r*Math.sin(ph)*Math.sin(th)
+    );
+    const s = 0.09 + Math.pow(Math.random(),3.2)*0.72;
+    m.scale.setScalar(s);
+    m.rotation.set(Math.random()*6.28, Math.random()*6.28, Math.random()*6.28);
+    m.material.opacity = 0.10 + Math.random()*0.22;
+    m.userData = { sx:(Math.random()-0.5)*0.5, sy:(Math.random()-0.5)*0.5,
+                   ph:Math.random()*6.28, baseY:m.position.y };
+    scene.add(m);
+    window.__DEBRIS__.push(m);
+  }
+}
+
+/* ---- polar jets : the vertical axis the composition was missing ---- */
+{
+  const N = 5200;
+  const pos  = new Float32Array(N*3);
+  const aT   = new Float32Array(N);
+  const aDir = new Float32Array(N);
+  const aSeed= new Float32Array(N);
+  const aAng = new Float32Array(N);
+  const aRad = new Float32Array(N);
+  for(let i=0;i<N;i++){
+    aT[i]   = Math.pow(Math.random(), 0.55);
+    aDir[i] = Math.random()<0.5 ? 1 : -1;
+    aSeed[i]= Math.random();
+    aAng[i] = Math.random()*Math.PI*2;
+    aRad[i] = Math.pow(Math.random(), 1.7);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('aT', new THREE.BufferAttribute(aT,1));
+  geo.setAttribute('aDir', new THREE.BufferAttribute(aDir,1));
+  geo.setAttribute('aSeed', new THREE.BufferAttribute(aSeed,1));
+  geo.setAttribute('aAng', new THREE.BufferAttribute(aAng,1));
+  geo.setAttribute('aRad', new THREE.BufferAttribute(aRad,1));
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 30);
+
+  const mat = new THREE.ShaderMaterial({
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, fog:false,
+    uniforms:{ uTime:{value:0}, uPR:{value:Math.min(devicePixelRatio,2)},
+               uCold:{value:0}, uFlow:{value:1.0} },
+    vertexShader:`
+      uniform float uTime, uPR, uCold, uFlow;
+      attribute float aT, aDir, aSeed, aAng, aRad;
+      varying vec3 vC; varying float vA;
+      void main(){
+        float t = fract(aT + uTime*0.055*(uFlow>0.0?uFlow:1.0));
+        float len = 24.0;
+        float y = aDir * t * len;
+        float spread = 0.035 + t*t*0.78;
+        float swirl = aAng + t*5.0 + uTime*0.35;
+        vec3 p = vec3(cos(swirl)*aRad*spread, y, sin(swirl)*aRad*spread);
+        // pinch at the base, widen outward, with a faint helical twist
+        p.xz *= (0.55 + t*1.0);
+        vec4 mv = modelViewMatrix * vec4(p,1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = (0.45 + aSeed*1.25) * (1.0 - t*0.55) * uPR * (52.0/-mv.z);
+        vec3 core = vec3(1.0,0.93,0.80);
+        vec3 far  = vec3(0.52,0.62,0.76);
+        vC = mix(core, far, t);
+        vC = mix(vC, vec3(0.55,0.75,1.0), uCold*0.65);
+        float fade = smoothstep(0.0,0.08,t) * (1.0 - smoothstep(0.55,1.0,t));
+        vA = fade * (0.26+0.26*aSeed);
+      }`,
+    fragmentShader:`
+      varying vec3 vC; varying float vA;
+      void main(){
+        float d = length(gl_PointCoord-0.5); if(d>0.5) discard;
+        gl_FragColor = vec4(vC, pow(smoothstep(0.5,0.0,d),1.6)*vA);
+      }`
+  });
+  const jets = new THREE.Points(geo, mat);
+  jets.name='jets';
+  scene.add(jets);
+  window.__JET_MAT__ = mat;
+}
+
+/* ---- distant nebulae : ultra-faint wash so space isn't empty black ---- */
+{
+  const tints = ['rgba(132,120,172,0.17)','rgba(96,118,160,0.15)','rgba(158,138,148,0.11)'];
+  for(let i=0;i<8;i++){
+    const s = radialSprite(tints[i%3], 'rgba(58,58,88,0.035)', 58 + Math.random()*48, 0xffffff);
+    const a = Math.random()*Math.PI*2;
+    const r = 46 + Math.random()*34;
+    s.position.set(Math.cos(a)*r, (Math.random()-0.5)*38, Math.sin(a)*r - 24);
+    s.material.opacity = 0.42 + Math.random()*0.30;
+    s.material.fog = false;
+    s.renderOrder = -5;
+    scene.add(s);
+  }
+}
+
+/* ---- foreground bokeh : out-of-focus light orbs for depth ---- */
+const bokeh = [];
+{
+  const colors = ['rgba(240,214,175,0.45)','rgba(176,192,208,0.40)','rgba(248,236,214,0.36)'];
+  for(let i=0;i<9;i++){
+    const s = radialSprite(colors[i%3], 'rgba(90,96,120,0.05)',
+      2.2 + Math.random()*3.6, 0xffffff);
+    // keep bokeh in the lower band of the frame so it never crosses the core
+    s.position.set((Math.random()-0.5)*30, -11 + Math.random()*7, 9 + Math.random()*8);
+    s.material.opacity = 0.07 + Math.random()*0.08;
+    s.renderOrder = 20;
+    s.userData = { bx:s.position.x, by:s.position.y, ph:Math.random()*6.28,
+                   sp:0.12+Math.random()*0.2 };
+    scene.add(s); bokeh.push(s);
+  }
+}
+
+/* ---- the core : event horizon. NO sphere, NO lollipop ----
+   A pure black disc (void) with a razor-thin photon ring around it.
+   Particles spiral in and vanish at the horizon. */
+const core = new THREE.Group();
+disc.add(core);
+{
+  // 1. the void: flat black disc, rendered AFTER dust so it occludes particles behind
+  const voidGeo = new THREE.CircleGeometry(2.0, 96);
+  const voidMat = new THREE.MeshBasicMaterial({ color:0x000000, transparent:false,
+    depthWrite:true, depthTest:true, side:THREE.DoubleSide, fog:false });
+  const voidDisc = new THREE.Mesh(voidGeo, voidMat);
+  voidDisc.rotation.x = -Math.PI/2;
+  voidDisc.renderOrder = 1;
+  core.add(voidDisc);
+
+  // 2. soft inner glow just outside the horizon (thin, not a ball)
+  const coreGlow = radialSprite('rgba(0,0,0,0)','rgba(240,190,120,0.20)', 4.6, 0xffffff);
+  core.add(coreGlow);
+  window.__CORE_GLOW__ = coreGlow;
+
+  // 3. photon ring : razor-thin, lies in the disc plane (horizontal ellipse from camera)
+  const rg = new THREE.TorusGeometry(2.02, 0.022, 6, 160);
+  const rm = new THREE.MeshBasicMaterial({ color:0xf5dfb4, transparent:true, opacity:0.70,
+    blending:THREE.AdditiveBlending, depthWrite:false, fog:false });
+  const ring = new THREE.Mesh(rg,rm);
+  ring.rotation.x = Math.PI/2;   // torus default in XY -> rotate into XZ (disc plane)
+  ring.renderOrder = 2;
+  core.add(ring);
+
+  // 4. outer faint blue halo ring
+  const rg2 = new THREE.TorusGeometry(2.28, 0.010, 6, 160);
+  const rm2 = new THREE.MeshBasicMaterial({ color:0x9db2c8, transparent:true, opacity:0.26,
+    blending:THREE.AdditiveBlending, depthWrite:false, fog:false });
+  const ring2 = new THREE.Mesh(rg2,rm2);
+  ring2.rotation.x = Math.PI/2;
+  ring2.renderOrder = 2;
+  core.add(ring2);
+
+  window.__CORE_RING__ = ring;
+}
+
+/* ---------- music : 穿越时空的思念 (piano) ----------
+   Analysed in the Web Audio graph; bass drives the core pulse.
+   On time-reversal the track slows down and gets low-passed,
+   which reads as tape-warble / time running backwards. */
+const audioEl = new Audio('./audio/track.mp3');
+audioEl.loop = true;
+audioEl.volume = 0;
+audioEl.preload = 'metadata';   // don't block first paint on a 4MB track
+
+const musicBox   = document.getElementById('music');
+const musicState = document.getElementById('music-state');
+const musicMeter = document.getElementById('music-meter');
+
+let actx=null, analyser=null, freqData=null, lowpass=null, graphReady=false;
+let musicRequested = false;
+let bassLevel = 0;
+
+function ensureAudioGraph(){
+  if(graphReady) return true;
+  try{
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = actx.createMediaElementSource(audioEl);
+    lowpass = actx.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = 20000;
+    lowpass.Q.value = 0.6;
+    analyser = actx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.82;
+    src.connect(lowpass);
+    lowpass.connect(analyser);
+    analyser.connect(actx.destination);
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    graphReady = true;
+    return true;
+  }catch(err){
+    console.warn('[audio] graph failed', err);
+    return false;
+  }
+}
+
+function startMusic(){
+  if(!ensureAudioGraph()) return;
+  musicRequested = true;
+  if(actx.state === 'suspended') actx.resume();
+  audioEl.play().catch(()=>{});
+  musicBox.classList.add('on');
+  musicState.textContent = 'NOW PLAYING';
+}
+
+function stopMusic(){
+  musicRequested = false;
+  audioEl.pause();
+  musicBox.classList.remove('on');
+  musicState.textContent = 'PAUSED · CLICK TO RESUME';
+}
+
+function toggleMusic(){
+  if(musicRequested) stopMusic(); else startMusic();
+}
+musicBox.addEventListener('pointerdown', e=>{ e.stopPropagation(); e.preventDefault(); toggleMusic(); });
+
+/* ---------- animation ---------- */
+const params = new URLSearchParams(location.search);
+const fixedT = params.has('t') ? parseFloat(params.get('t')) : null;
+const clock = new THREE.Clock();
+let simTime = fixedT !== null ? fixedT : 0;
+
+/* ---- time reversal : the whole piece runs backwards, palette goes cold ---- */
+let timeDir = 1;          // +1 forward, -1 reversed
+let reversing = false;
+const REV_SPEED = 2.2;    // reversal feels urgent, not sluggish
+let coldTarget = 0;
+function applyTimeDir(dir){
+  timeDir = dir;
+  coldTarget = dir < 0 ? 1 : 0;
+  document.body.classList.toggle('reversed', dir < 0);
+}
+
+// unified time-flow state: `flow` is the smoothed rate, simTime advances by it.
+// uFlow in the shaders must be driven by simTime only (they already are), so
+// reversing is expressed purely through simTime going backwards.
+let flow = 1;
+let lastDebrisCold = -1;
+
+function frame(){
+  const dt = Math.min(clock.getDelta(), 0.05);
+  // snap back to forward flow quickly; only the entry should feel inertial
+  const easeTarget = timeDir < 0 ? 0.0015 : 0.00001;
+  const ease = 1 - Math.pow(easeTarget, dt);
+  flow += ((timeDir<0 ? -REV_SPEED : 1) - flow) * ease;
+  if(fixedT === null) simTime += dt * flow;
+
+  // colour shift is the only per-frame uniform easing needed
+  const dm = window.__DUST_MAT__.uniforms, rm = window.__RING_MAT__.uniforms, tm = window.__TRAIL_MAT__?.uniforms;
+  dm.uCold.value += (coldTarget - dm.uCold.value) * ease;
+  rm.uCold.value += (coldTarget - rm.uCold.value) * ease;
+  if(tm) tm.uCold.value += (coldTarget - tm.uCold.value) * ease;
+  // flow uniforms stay at 1.0 — direction lives in simTime
+  dm.uFlow.value = 1.0; rm.uFlow.value = 1.0;
+  if(tm) tm.uFlow.value = 1.0;
+
+  window.__DUST_MAT__.uniforms.uTime.value = simTime;
+  window.__RING_MAT__.uniforms.uTime.value = simTime;
+  if(window.__TRAIL_MAT__) window.__TRAIL_MAT__.uniforms.uTime.value = simTime;
+  /* ---- music state : volume fade, bass analysis, reverse treatment ---- */
+  const coldNow = window.__DUST_MAT__.uniforms.uCold.value;
+  audioEl.volume += ((musicRequested ? 0.55 : 0) - audioEl.volume) * Math.min(1, dt*2.2);
+
+  if(graphReady && musicRequested && analyser){
+    analyser.getByteFrequencyData(freqData);
+    let sum = 0;
+    for(let i=1;i<=12;i++) sum += freqData[i];   // low band
+    bassLevel = sum / 12 / 255;
+  } else {
+    bassLevel *= 0.90;
+  }
+  if(musicMeter) musicMeter.style.width = Math.min(100, bassLevel*100).toFixed(0) + '%';
+
+  // reversed time drags the track down and dulls it — tape-warble feel
+  const rateTarget = timeDir < 0 ? 0.58 : 1.0;
+  audioEl.playbackRate += (rateTarget - audioEl.playbackRate) * Math.min(1, dt*7.0);
+  if(lowpass){
+    const fTarget = 20000 - coldNow*18500;
+    lowpass.frequency.value += (fTarget - lowpass.frequency.value) * Math.min(1, dt*7.5);
+  }
+
+  // photon ring breathes — sine heartbeat plus whatever the piano is doing
+  if(window.__CORE_RING__){
+    const beat = 0.92 + 0.08*Math.sin(simTime*1.6) + bassLevel*0.26;
+    window.__CORE_RING__.scale.setScalar(beat);
+    window.__CORE_RING__.material.opacity = Math.min(1,
+      0.72 + 0.20*Math.sin(simTime*1.6) + bassLevel*0.45);
+    // ring cools with the reversed flow, stays in the same colour story
+    window.__CORE_RING__.material.color.setRGB(
+      0.96 - coldNow*0.44, 0.87 - coldNow*0.22, 0.70 + coldNow*0.34);
+    if(window.__CORE_GLOW__){
+      const gm = window.__CORE_GLOW__.material;
+      gm.color.setRGB(1.0 - coldNow*0.55, 1.0 - coldNow*0.38, 1.0 + coldNow*0.25);
+      gm.opacity = 1.0 - coldNow*0.25;
+    }
+  }
+
+  // dial meshes lie in XZ plane (rotation.x=-PI/2); their local Z is world Y.
+  ringA.rotation.z =  simTime*0.045;
+  ringB.rotation.z = -simTime*0.031;
+
+  for(const m of window.__SHARDS__){
+    const u=m.userData;
+    m.rotation.x += dt*u.spin*0.6; m.rotation.y += dt*u.spin;
+    m.position.y = u.y + Math.sin(simTime*0.5+u.ph)*0.25;
+  }
+
+  // armillary hoops precess at their own rates — the mechanism feel
+  for(const g of metalRings){
+    g.rotation.y = simTime * g.userData.spin;
+    // slow nutation so the hoops never read as a static diagram
+    g.rotation.x = g.userData.baseX + Math.sin(simTime*0.11 + g.userData.baseZ*4.0)*0.055;
+  }
+
+  // debris tumbles through real space
+  for(const m of window.__DEBRIS__){
+    const u = m.userData;
+    m.rotation.x += dt*u.sx; m.rotation.y += dt*u.sy;
+    m.position.y = u.baseY + Math.sin(simTime*0.35+u.ph)*0.7;
+  }
+
+  if(window.__JET_MAT__){
+    window.__JET_MAT__.uniforms.uTime.value = simTime;
+    window.__JET_MAT__.uniforms.uCold.value = coldTarget;
+  }
+  // hoops pick up the cold cast when time runs backwards
+  for(const g of metalRings){
+    for(const c of g.children){
+      const u = c.material && c.material.uniforms;
+      if(u && u.uCold) u.uCold.value = coldTarget;
+    }
+  }
+  // debris follows the same colour story (cheap: only on change)
+  if(Math.abs(coldTarget - lastDebrisCold) > 0.02){
+    lastDebrisCold = coldTarget;
+    const c = coldTarget;
+    for(const m of window.__DEBRIS__){
+      m.material.color.setRGB(0.847 - c*0.36, 0.725 - c*0.06, 0.510 + c*0.36);
+    }
+  }
+  for(const s of bokeh){
+    const u=s.userData;
+    s.position.x = u.bx + Math.sin(simTime*u.sp+u.ph)*1.6;
+    s.position.y = u.by + Math.cos(simTime*u.sp*0.8+u.ph)*1.0;
+  }
+
+  // clock readout — runs backwards when time is reversed
+  const total = Math.floor(Math.abs(simTime)*10);
+  const hh = String(Math.floor(total/3600)%24).padStart(2,'0');
+  const mm = String(Math.floor(total/60)%60).padStart(2,'0');
+  const ss = String(total%60).padStart(2,'0');
+  document.getElementById('clock-v').textContent = `${hh} : ${mm} : ${ss}`;
+  document.getElementById('clock-sub').textContent = timeDir < 0 ? 'T + ∞  ⟲' : 'T − ∞';
+
+  controls.update();
+  composer.render();
+  window.__READY__ = true;
+  requestAnimationFrame(frame);
+}
+frame();
+
+/* ---------- pointer interaction ---------- */
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const plane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+const hit = new THREE.Vector3();
+const localHit = new THREE.Vector3();
+
+function pointerToDisc(cx, cy){
+  ndc.x = (cx/innerWidth)*2-1;
+  ndc.y = -(cy/innerHeight)*2+1;
+  ray.setFromCamera(ndc, camera);
+  if(ray.ray.intersectPlane(plane, hit)){
+    localHit.copy(hit); disc.worldToLocal(localHit);
+    return localHit;
+  }
+  return null;
+}
+function forEachParticleMat(fn){ fn(window.__DUST_MAT__); fn(window.__RING_MAT__); }
+
+let mouseIdle;
+renderer.domElement.addEventListener('pointermove', e=>{
+  const p = pointerToDisc(e.clientX, e.clientY);
+  if(p) forEachParticleMat(m=>{ m.uniforms.uMouse.value.copy(p); m.uniforms.uMouseOn.value=1; });
+  clearTimeout(mouseIdle);
+  mouseIdle = setTimeout(()=>{ forEachParticleMat(m=>{ m.uniforms.uMouseOn.value=0; }); }, 1400);
+});
+// round-robin over 4 slots so successive clicks coexist instead of overwriting
+let shockSlot = -1;
+const SHOCK_SLOTS = 4;
+renderer.domElement.addEventListener('pointerdown', e=>{
+  // first real gesture unlocks audio (browser autoplay policy)
+  if(!musicRequested) startMusic();
+  const p = pointerToDisc(e.clientX, e.clientY);
+  if(!p) return;
+  shockSlot = (shockSlot + 1) % SHOCK_SLOTS;
+  const k = shockSlot;
+  forEachParticleMat(m=>{
+    m.uniforms.uShockT.value[k] = simTime;
+    const arr = m.uniforms.uShockPos.value;
+    arr[k*3] = p.x; arr[k*3+1] = p.y; arr[k*3+2] = p.z;
+  });
+});
+
+/* ---------- time reversal controls ---------- */
+addEventListener('keydown', e=>{
+  if(!musicRequested && (e.code==='ShiftLeft'||e.code==='ShiftRight'||e.code==='Space')) startMusic();
+  if(e.code==='ShiftLeft'||e.code==='ShiftRight'){ if(!reversing){ reversing=true; applyTimeDir(-1); } }
+  if(e.code==='Space'){ e.preventDefault(); if(!reversing){ reversing=true; applyTimeDir(-1); } }
+});
+addEventListener('keyup', e=>{
+  if(e.code==='ShiftLeft'||e.code==='ShiftRight'||e.code==='Space'){
+    if(reversing){ reversing=false; applyTimeDir(1); }
+  }
+});
+// safety: releasing focus shouldn't leave it stuck in reverse
+addEventListener('blur', ()=>{ if(reversing){ reversing=false; applyTimeDir(1); } });
+
+/* ---------- api ---------- */
+window.__APP__ = {
+  setTime:(t)=>{ simTime=t; },
+  setTimeFlow:(f)=>{ window.__DUST_MAT__.uniforms.uFlow.value=f; window.__RING_MAT__.uniforms.uFlow.value=f; },
+  setCam:(x,y,z)=>{ camera.position.set(x,y,z); controls.update(); },
+  hideBokeh:()=>{ bokeh.forEach(s=>s.visible=false); },
+  hideTrails:()=>{ disc.getObjectByName('trails').visible=false; },
+  music:{ start:startMusic, stop:stopMusic, get on(){ return musicRequested; } },
+  get state(){ return { t:simTime }; }
+};
+// debug handles for automated verification
+window.__AUDIO__ = audioEl;
+Object.defineProperty(window, '__LP__', { get:()=>lowpass });
+window.__BASS__ = ()=>bassLevel;
+
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+  composer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
